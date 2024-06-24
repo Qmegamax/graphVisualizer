@@ -11,7 +11,7 @@ Controls:
 
 "r" redraw the graph
 
-"l" change the color to random
+"l" randomize the node and link color
 
 # How do i run it?
 
