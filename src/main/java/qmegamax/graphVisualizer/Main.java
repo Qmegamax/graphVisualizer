@@ -8,6 +8,8 @@ public class Main {
                CanvasFrame frame = new CanvasFrame(graph);
         }
 
+
+
         public static void addNodes(Graph graph, int amount) {
                 int size = graph.nodeCount;
 
@@ -16,7 +18,7 @@ public class Main {
                 for (int i = 0; i < amount; i++) {
                         int a,b;
 
-                        maxTries=size+100;
+                        maxTries=size+30;
                         do {
                                 a = (int) (Math.random() * size);
                                 b = (int) (Math.random() * size);

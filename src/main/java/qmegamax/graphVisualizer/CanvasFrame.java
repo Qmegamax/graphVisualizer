@@ -2,6 +2,7 @@ package qmegamax.graphVisualizer;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.lang.constant.Constable;
 import java.util.ArrayList;
 
 import javax.swing.*;
@@ -9,6 +10,7 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
 public class CanvasFrame extends JFrame {
+    private static JFrame frame;
     private static imageCanvas CANVAS;
     private final static int WIDTH = 1200;
     private final static int HEIGHT = 1200;
@@ -47,7 +49,7 @@ public class CanvasFrame extends JFrame {
     }
 
     public CanvasFrame(Graph graph) {
-        JFrame frame = new JFrame("Graph Visualizer");
+        frame = new JFrame("Graph Visualizer");
 
         JMenuBar menuBar = new JMenuBar();
         frame.setJMenuBar(menuBar);
@@ -72,10 +74,9 @@ public class CanvasFrame extends JFrame {
                 JOptionPane.showMessageDialog(null, "Minimal distance is 51!", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-
             DISTANCE=dist;
-            CANVAS.generatePlacements();
-            CANVAS.repaint();
+
+            CANVAS.updateCanvas();
         });
         mnNewMenu.add(spinner);
 
@@ -93,8 +94,7 @@ public class CanvasFrame extends JFrame {
             Main.addNodes(newGraph,(int) spinner_2.getValue());
             CANVAS.graph=newGraph;
 
-            CANVAS.generatePlacements();
-            CANVAS.repaint();
+            CANVAS.updateCanvas();
         });
         mnNewMenu.add(spinner_2);
 
@@ -110,13 +110,10 @@ public class CanvasFrame extends JFrame {
             }
 
             Graph newGraph = new Graph((int) spinner_3.getValue());
-            System.out.println(CANVAS.graph.nodeCount);
-            Main.addNodes(newGraph,CANVAS.graph.nodeCount);
-            System.out.println(CANVAS.graph.nodeCount);
+            Main.addNodes(newGraph,CANVAS.graph.linkCount);
             CANVAS.graph=newGraph;
 
-            CANVAS.generatePlacements();
-            CANVAS.repaint();
+            CANVAS.updateCanvas();
         });
         mnNewMenu.add(spinner_3);
 
@@ -239,73 +236,52 @@ public class CanvasFrame extends JFrame {
             generatePlacements();
         }
 
+        private void updateCanvas(){
+            CANVAS.generatePlacements();
+            CANVAS.repaint();
+        }
+
         public void generatePlacements() {
             Dimension[] positions = new Dimension[graph.nodeCount];
-            boolean noConnection;
+            ProgressBar prb = null;
 
-            do {
-                noConnection = false;
+            for (int i = 0; i < graph.nodeCount; i++) {
+                if(i%(Math.max(1,graph.nodeCount/100))==0){prb=new ProgressBar(frame,prb,"Placing node "+(i+1)+"/"+(graph.nodeCount));}
 
-                for (int i = 0; i < graph.nodeCount; i++) {
-                    if (positions[i] != null) continue;
 
-                    if (i == 0) {
-                        positions[i] = new Dimension(0, 0);
-                        continue;
-                    }
-
-                    Dimension ancorPosition = null;
-                    Dimension newCords;
-
-                    if (graph.links[i].isEmpty()) {
-                        do {
-                            ancorPosition = positions[(int) (Math.random() * positions.length)];
-
-                        } while (ancorPosition == null);
-
-                        newCords = getNewCords(ancorPosition.width, ancorPosition.height, positions,true);
-
-                        if (newCords == null) {
-                            noConnection = true;
-                            continue;
-                        }
-                    } else {
-                        boolean connectedToSth = false;
-                        
-                        for (int num : graph.links[i]) {
-                            if (positions[num] != null) {
-                                ancorPosition = positions[num];
-                                connectedToSth=true;
-                                break;
-                            }
-                        }
-                        
-                        if(!connectedToSth){
-                            do {
-                                ancorPosition = positions[(int) (Math.random() * positions.length)];
-
-                            } while (ancorPosition == null);
-
-                            newCords = getNewCords(ancorPosition.width, ancorPosition.height, positions,true);
-
-                            if (newCords == null) {
-                                noConnection = true;
-                                continue;
-                            }
-                        }else{
-                            newCords = getNewCords(ancorPosition.width, ancorPosition.height, positions,false);
-                        }
-                    }
-
-                    positions[i] = newCords;
+                if (i == 0) {
+                    positions[i] = new Dimension(0, 0);
+                    continue;
                 }
 
-            } while (noConnection);
+                Dimension ancorPosition=null;
+                Dimension newCords;
 
+                if (graph.links[i].isEmpty()) {
+                    ancorPosition = positions[(int) (Math.random() * i)];
+                    newCords = getNewCords(ancorPosition.width, ancorPosition.height, positions);
+                }else{
+                    for (int potentialLinks : graph.links[i]) {
+                        if(potentialLinks<i){
+                            ancorPosition=positions[potentialLinks];
+                            break;
+                        }
+                    }
+
+                    if(ancorPosition==null) {
+                        ancorPosition = positions[(int) (Math.random() * i)];
+                    }
+                        newCords = getNewCords(ancorPosition.width, ancorPosition.height, positions);
+                }
+
+                positions[i] = newCords;
+            }
+
+            prb.frame.dispose();
             nodePositions = positions;
         }
 
-        public Dimension getNewCords(int a, int b, Dimension[] positions,boolean seperate) {
+        public Dimension getNewCords(int a, int b, Dimension[] allreadyPlacedNodes) {
             boolean collision;
             Dimension newCordinates;
             int maxTries = 4;
@@ -316,8 +292,9 @@ public class CanvasFrame extends JFrame {
                 double degree = Math.random() * 360;
                 newCordinates = new Dimension((int) (a + DISTANCE * Math.cos(degree)), (int) (b + DISTANCE * Math.sin(degree)));
 
-                for (Dimension d : positions) {
-                    if (d == null) continue;
+                for (Dimension d : allreadyPlacedNodes) {
+                    if (d == null) break;
+
                     double distance = Math.sqrt(Math.pow(newCordinates.width - d.width, 2) + Math.pow(newCordinates.height - d.height, 2));
 
                     if (distance <= 50) {
@@ -327,8 +304,6 @@ public class CanvasFrame extends JFrame {
                     }
                 }
 
-                if(maxTries==0 && seperate){
-                    return null;}
             } while (collision && maxTries>0);
 
             return newCordinates;
